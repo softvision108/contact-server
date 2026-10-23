@@ -1,0 +1,22 @@
+{
+  "name": "contact-server-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/index.js",
+    "start": "node --env-file=.env src/index.js",
+    "web": "node --env-file=.env src/web.js",
+    "seed": "node --env-file=.env src/seed.js",
+    "sync": "node --env-file=.env src/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "http-proxy-middleware": "^3.0.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5"
+  }
+}
