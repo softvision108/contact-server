@@ -5,6 +5,7 @@ import { authRouter, requireAuth } from './auth.js';
 import { config } from './config.js';
 import { licensesRouter } from './licenses.js';
 import { mailRouter } from './mail.js';
+import { migrateLegacyMail } from './mailAccounts.js';
 import { peopleRouter } from './people.js';
 import { providersRouter } from './providers.js';
 import { streamersRouter } from './streamers.js';
@@ -31,4 +32,5 @@ app.use((err, req, res, next) => {
 });
 
 await mongoose.connect(config.mongoUri);
+await migrateLegacyMail();
 app.listen(config.apiPort, '127.0.0.1', () => console.log(`API on http://127.0.0.1:${config.apiPort}`));

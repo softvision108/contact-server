@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { api } from "../api.js";
-import { Badge, Button, ErrorBox, Field, Modal, inputClass, textareaClass } from "../components/ui.jsx";
+import { Badge, Button, ErrorBox, Field, Modal, SelectInput, inputClass, textareaClass } from "../components/ui.jsx";
 
 const DRAFT_KEY = "contact-server-mail-draft";
+const SENDER_KEY = "contact-server-mail-sender";
 const STATE_TONE = { sent: "success", failed: "error", skipped: "warning", sending: "info" };
 
 function loadDraft() {
@@ -22,6 +23,18 @@ function saveDraft(draft) {
   }
 }
 
+// The sender picked last time, while it can still send.
+function pickSender(senders) {
+  let saved = null;
+  try {
+    saved = localStorage.getItem(SENDER_KEY);
+  } catch {
+    // private window: start from the first sender
+  }
+  const usable = senders.filter((s) => s.usable);
+  return (usable.find((s) => s.id === saved && s.remaining) || usable.find((s) => s.remaining) || usable[0])?.id || "";
+}
+
 // Compose one message, send it to every selected row (one email per row), and follow the progress.
 // `list` is the API list name (providers, people, licenses, streamers); `fields` lists extra {{placeholders}}.
 // `recipient` names the row when the window was opened from one row's email button.
@@ -29,6 +42,7 @@ export default function SendMailModal({ isOpen, list, ids, recipient, fields = [
   const [draft, setDraft] = useState(loadDraft);
   const [allEmails, setAllEmails] = useState(false);
   const [mailConfig, setMailConfig] = useState(null);
+  const [senderId, setSenderId] = useState("");
   const [job, setJob] = useState(null);
   const [error, setError] = useState("");
   const [isStarting, setIsStarting] = useState(false);
@@ -37,7 +51,12 @@ export default function SendMailModal({ isOpen, list, ids, recipient, fields = [
     if (!isOpen) return;
     setJob(null);
     setError("");
-    api("/mail/config").then(setMailConfig).catch((err) => setError(err.message));
+    api("/mail/config")
+      .then((c) => {
+        setMailConfig(c);
+        setSenderId(pickSender(c.senders));
+      })
+      .catch((err) => setError(err.message));
   }, [isOpen]);
 
   // Poll the running job; tell the page once it is done so it reloads the rows.
@@ -60,13 +79,22 @@ export default function SendMailModal({ isOpen, list, ids, recipient, fields = [
     saveDraft(next);
   };
 
+  const chooseSender = (id) => {
+    setSenderId(id);
+    try {
+      localStorage.setItem(SENDER_KEY, id);
+    } catch {
+      // not remembered
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     setError("");
     if (!draft.subject.trim() || !draft.body.trim()) return setError("Subject and message are required");
     setIsStarting(true);
     try {
-      setJob(await api("/mail/send", { method: "POST", body: { list, ids, subject: draft.subject, body: draft.body, allEmails } }));
+      setJob(await api("/mail/send", { method: "POST", body: { list, ids, senderId, subject: draft.subject, body: draft.body, allEmails } }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -75,13 +103,14 @@ export default function SendMailModal({ isOpen, list, ids, recipient, fields = [
   };
 
   const isRunning = Boolean(job && !job.finished);
+  const sender = mailConfig?.senders.find((s) => s.id === senderId);
   const placeholders = ["name", "email", ...fields].map((f) => `{{${f}}}`).join("  ");
 
   return (
     <Modal isOpen={isOpen} onClose={() => !isRunning && onClose()} title={recipient ? `Send email to ${recipient}` : `Send email to ${ids.length} selected`} maxWidth="max-w-3xl">
       <ErrorBox>{error}</ErrorBox>
       {mailConfig && !mailConfig.configured ? (
-        <ErrorBox>Email is not set up yet: fill RESEND_API_KEY and RESEND_FROM in server/.env, then restart the API.</ErrorBox>
+        <ErrorBox>Email is not set up yet: add a Resend account and a sender in Settings &gt; Mail.</ErrorBox>
       ) : null}
       {mailConfig?.dryRun ? (
         <div className="mb-4 rounded-lg bg-warning-50 p-3 text-sm text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
@@ -92,7 +121,7 @@ export default function SendMailModal({ isOpen, list, ids, recipient, fields = [
       {job ? (
         <div>
           <div className="mb-2 flex justify-between text-sm text-gray-600 dark:text-gray-300">
-            <span>{job.finished ? "Finished" : "Sending..."} {job.done} / {job.total}</span>
+            <span>{job.finished ? "Finished" : "Sending..."} {job.done} / {job.total} from {job.from}</span>
             <span>
               <span className="text-success-600">{job.sent} sent</span> · <span className="text-error-500">{job.failed} failed</span> · <span className="text-warning-600">{job.skipped} skipped</span>
             </span>
@@ -116,15 +145,25 @@ export default function SendMailModal({ isOpen, list, ids, recipient, fields = [
         </div>
       ) : (
         <form onSubmit={handleSend}>
-          {mailConfig ? (
-            <div className="mb-4 flex flex-wrap justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span>From: {mailConfig.from}</span>
-              <span className={mailConfig.remaining < ids.length ? "text-warning-600" : ""}>
-                Today: {mailConfig.sentToday} / {mailConfig.dailyLimit} sent, {mailConfig.remaining} left
-              </span>
-            </div>
+          {mailConfig?.configured ? (
+            <Field label="From" htmlFor="mail-sender" className="mb-4">
+              <SelectInput
+                id="mail-sender"
+                value={senderId}
+                onChange={chooseSender}
+                options={mailConfig.senders
+                  .filter((s) => s.usable)
+                  .map((s) => ({ value: s.id, label: `${s.from} · ${s.integrationName} · ${s.remaining} left today` }))}
+              />
+              {sender ? (
+                <p className={`mt-1.5 text-xs ${sender.remaining < ids.length ? "text-warning-600" : "text-gray-500 dark:text-gray-400"}`}>
+                  Today: this sender {sender.sentToday} / {mailConfig.dailyLimit} sent, its Resend account{" "}
+                  {mailConfig.integrations.find((i) => i.id === sender.integration)?.sentToday ?? 0} / {mailConfig.dailyLimit}. {sender.remaining} left.
+                </p>
+              ) : null}
+            </Field>
           ) : null}
-          {mailConfig && mailConfig.remaining === 0 ? <ErrorBox>The daily email limit is reached. Raise it in Settings &gt; Mail or wait until tomorrow (UTC).</ErrorBox> : null}
+          {sender && sender.remaining === 0 ? <ErrorBox>This sender or its Resend account reached the daily limit. Pick another sender, raise the limit in Settings &gt; Mail, or wait until tomorrow (UTC).</ErrorBox> : null}
           <Field label="Subject" htmlFor="mail-subject">
             <input id="mail-subject" className={inputClass} value={draft.subject} onChange={set("subject")} />
           </Field>
@@ -136,11 +175,11 @@ export default function SendMailModal({ isOpen, list, ids, recipient, fields = [
             Send to every address of a row (otherwise only its first email)
           </label>
           <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-            One email per row. Rows without an email or with status &quot;blocked&quot; are skipped, and so are rows past the daily limit. A row that was &quot;ready&quot; becomes &quot;sent&quot;.
+            One email per row. Rows without an email or with status &quot;blocked&quot; are skipped, and so are rows past the daily limit of the sender or its Resend account. A row that was &quot;ready&quot; becomes &quot;sent&quot;.
           </p>
           <div className="mt-6 flex justify-end gap-3">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={isStarting || !mailConfig?.configured || !mailConfig?.remaining}>{isStarting ? "Starting..." : recipient ? "Send email" : `Send ${ids.length} emails`}</Button>
+            <Button type="submit" disabled={isStarting || !sender?.remaining}>{isStarting ? "Starting..." : recipient ? "Send email" : `Send ${ids.length} emails`}</Button>
           </div>
         </form>
       )}

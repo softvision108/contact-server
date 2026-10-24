@@ -12,13 +12,15 @@ Emails go out through [Resend](https://resend.com) (its HTTP API, the same sende
 - **One row:** the envelope button in a row's Actions opens the email window for that row only.
 - **Many rows:** tick rows on any list (the header box ticks the whole page; picks are kept across pages), then **Send email** in the bar above the table.
 
-You write a subject and message; `{{name}}`, `{{email}}` and any field of the row (`{{username}}`, `{{country}}`...) are filled in per row. One email goes to each row (its first address, or all of them if you tick that option), one by one with `MAIL_DELAY_MS` between them, and the window shows each row's result.
+You pick a sender, write a subject and message; `{{name}}`, `{{email}}` and any field of the row (`{{username}}`, `{{country}}`...) are filled in per row. One email goes to each row (its first address, or all of them if you tick that option), one by one with the pause set in **Settings > Mail** between them, and the window shows each row's result.
 
-After a send, every emailed row gets `lastEmailAt`, `lastEmailSubject` and `emailCount` (shown as "Emailed <date>" under its status), and a row that was `ready` becomes `sent`. Rows marked `replied` keep their status, rows marked `blocked` or without an email are skipped, and a failed send is shown as "Email failed" with the reason on hover.
+After a send, every emailed row gets `lastEmailAt`, `lastEmailSubject`, `lastEmailFrom` and `emailCount` (shown as "Emailed <date>" under its status), and a row that was `ready` becomes `sent`. Rows marked `replied` keep their status, rows marked `blocked` or without an email are skipped, and a failed send is shown as "Email failed" with the reason on hover.
 
-**Daily limit:** **Settings > Mail** sets how many emails may go out per day (default 100, the Resend free plan's quota; 0 stops sending) and shows today's usage. It counts recipient addresses per UTC day; rows past the limit are skipped, and a refused send does not count.
+**Resend accounts and senders:** **Settings > Mail** holds the Resend accounts (integrations, each with its API key, stored encrypted with `MAIL_SECRET` from `server/.env`) and the senders of each account (`Name <address>` on a domain verified in that account, optional reply-to). **Test** checks a key and whether each sender's domain is verified. Two senders can send at the same time; one sender runs one send at a time.
 
-Set it up in `server/.env` and restart the API: `RESEND_API_KEY`, `RESEND_FROM` (`"Name <you@your-domain>"` on a domain verified in Resend; empty = `onboarding@resend.dev`, which only reaches the Resend account owner), optional `MAIL_REPLY_TO` (see `.env.example`). `MAIL_DRY_RUN=true` runs the whole flow without sending anything.
+**Daily limit:** one global number (default 100, the Resend free plan's quota; 0 stops sending), applied to each sender and also to the total of each Resend account. It counts recipient addresses per UTC day; rows past either limit are skipped, and a refused send does not count. The settings page shows today's usage per account and per sender.
+
+The first start after this change turns the old `RESEND_API_KEY` / `RESEND_FROM` / `MAIL_REPLY_TO` / `MAIL_DELAY_MS` in `server/.env` into the first account and sender (and moves today's count to it); after that they are not read. `MAIL_DRY_RUN=true` runs the whole flow without sending anything.
 
 ## Ports
 

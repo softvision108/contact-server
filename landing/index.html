@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkyStake</title>
+    <meta
+      name="description"
+      content="SkyStake runs an online crypto casino and sportsbook on infrastructure it builds itself."
+    />
+    <meta name="theme-color" content="#040a16" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* SkyStake brand palette (dark), from skystake/apps/landing/src/styles.css. */
+      :root {
+        color-scheme: dark;
+        --bg: #040a16;
+        --bg-2: #071021;
+        --surface: #0b1426;
+        --text: #e6eef9;
+        --muted: #8a93a6;
+        --border: rgb(230 238 249 / 0.08);
+        --border-strong: rgb(230 238 249 / 0.16);
+        --brand: #2e90ff;
+        --brand-bright: #5db2ff;
+        --brand-deep: #0b63d6;
+        --win: #00e676;
+        --grid: rgb(230 238 249 / 0.04);
+        --display: "Sora", "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Inter", "Segoe UI", sans-serif;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        overflow-x: clip;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: var(--display);
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--brand);
+        outline-offset: 3px;
+      }
+
+      ::selection {
+        background: rgb(46 144 255 / 0.35);
+      }
+
+      .container {
+        width: 100%;
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 0 16px;
+      }
+
+      section {
+        padding: 5rem 0;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--brand-bright);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background: currentColor;
+      }
+
+      .section-title {
+        margin-top: 0.75rem;
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        font-weight: 700;
+        line-height: 1.15;
+      }
+
+      .text-gradient {
+        background: linear-gradient(92deg, #ffffff 0%, #bfe0ff 45%, var(--brand) 100%);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: shimmer 7s ease-in-out infinite alternate;
+      }
+
+      @keyframes shimmer {
+        from {
+          background-position: 0% 50%;
+        }
+        to {
+          background-position: 100% 50%;
+        }
+      }
+
+      .glass {
+        background: linear-gradient(160deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02));
+        border: 1px solid var(--border);
+        backdrop-filter: blur(10px);
+      }
+
+      .card-hover {
+        transition:
+          transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+          border-color 0.35s,
+          box-shadow 0.35s;
+      }
+
+      .card-hover:hover {
+        transform: translateY(-4px);
+        border-color: rgb(46 144 255 / 0.4);
+        box-shadow: 0 24px 50px -30px rgb(46 144 255 / 0.5);
+      }
+
+      /* Header */
+      header {
+        position: absolute;
+        inset: 0 0 auto;
+        z-index: 10;
+        padding: 1.25rem 0;
+      }
+
+      header .container {
+        display: flex;
+        align-items: center;
+      }
+
+      .logo {
+        display: block;
+        width: 176px;
+        height: auto;
+      }
+
+      /* Hero: slow aurora, faint grid and two blue orbs, as in the SkyStake hero. */
+      .hero {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        padding: 9rem 0 4rem;
+      }
+
+      .aurora {
+        position: absolute;
+        inset: -25%;
+        z-index: -3;
+        background: conic-gradient(
+          from 0deg at 50% 50%,
+          transparent 0deg,
+          rgb(46 144 255 / 0.2) 60deg,
+          transparent 120deg,
+          rgb(11 99 214 / 0.18) 200deg,
+          transparent 260deg,
+          rgb(93 178 255 / 0.14) 320deg,
+          transparent 360deg
+        );
+        filter: blur(90px);
+        animation: aurora 32s linear infinite;
+      }
+
+      @keyframes aurora {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .grid-bg {
+        position: absolute;
+        inset: 0;
+        z-index: -2;
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+      }
+
+      .orb {
+        position: absolute;
+        z-index: -1;
+        border-radius: 9999px;
+        filter: blur(120px);
+      }
+
+      .orb-a {
+        top: -10%;
+        left: -10%;
+        width: 42rem;
+        height: 42rem;
+        background: rgb(46 144 255 / 0.25);
+      }
+
+      .orb-b {
+        right: -15%;
+        bottom: -20%;
+        width: 36rem;
+        height: 36rem;
+        background: rgb(11 99 214 / 0.3);
+      }
+
+      /* Fade the hero background into the page so it has no hard bottom edge. */
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0;
+        z-index: -1;
+        height: 16rem;
+        background: linear-gradient(transparent, var(--bg));
+        pointer-events: none;
+      }
+
+      .hero-copy {
+        max-width: 46rem;
+      }
+
+      .hero h1 {
+        margin-top: 1.25rem;
+        font-size: clamp(2.5rem, 7vw, 4.5rem);
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
+      }
+
+      .lead {
+        margin-top: 1.5rem;
+        max-width: 38rem;
+        color: var(--muted);
+        font-size: 1.125rem;
+        line-height: 1.7;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.25rem;
+        margin: 1.75rem 0 0;
+        padding: 0;
+        list-style: none;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .chips li::before {
+        content: "✓";
+        margin-right: 0.4rem;
+        color: var(--win);
+      }
+
+      /* Site widgets: a framed screenshot of each SkyStake site, the whole card is the link. */
+      .widgets {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+        gap: 1.5rem;
+        margin-top: 3.5rem;
+      }
+
+      .widget {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 1.5rem;
+        text-decoration: none;
+      }
+
+      .widget.is-primary {
+        border-color: rgb(46 144 255 / 0.35);
+        box-shadow: 0 30px 80px -40px rgb(46 144 255 / 0.6);
+      }
+
+      .browser {
+        margin: 0.75rem 0.75rem 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        background: var(--bg-2);
+      }
+
+      .browser-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .browser-bar i {
+        width: 9px;
+        height: 9px;
+        border-radius: 9999px;
+        background: var(--border-strong);
+      }
+
+      .browser-url {
+        margin-left: 0.5rem;
+        flex: 1;
+        overflow: hidden;
+        padding: 0.15rem 0.75rem;
+        border-radius: 9999px;
+        background: rgb(255 255 255 / 0.05);
+        color: var(--muted);
+        font-size: 0.75rem;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .shot {
+        position: relative;
+        overflow: hidden;
+        aspect-ratio: 16 / 10;
+      }
+
+      .shot img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top;
+        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .widget:hover .shot img {
+        transform: scale(1.03);
+      }
+
+      .widget-body {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.25rem 1.5rem 1.5rem;
+      }
+
+      .widget-text {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .widget-tag {
+        color: var(--brand-bright);
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .widget h3 {
+        margin-top: 0.3rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .widget-text p {
+        margin-top: 0.35rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .go {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 3.25rem;
+        height: 3.25rem;
+        border: 1px solid var(--border-strong);
+        border-radius: 9999px;
+        background: rgb(255 255 255 / 0.06);
+        transition:
+          background-color 0.2s,
+          border-color 0.2s,
+          transform 0.2s;
+      }
+
+      .is-primary .go,
+      .widget:hover .go {
+        border-color: transparent;
+        background: var(--brand);
+        box-shadow: 0 10px 30px -10px var(--brand);
+      }
+
+      .widget:hover .go {
+        transform: translate(2px, -2px);
+      }
+
+      .go svg {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+
+      /* Stats */
+      .stats {
+        padding: 0 0 2rem;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+        gap: 1rem;
+      }
+
+      .stat {
+        padding: 1.5rem;
+        border-radius: 1.25rem;
+      }
+
+      .stat strong {
+        display: block;
+        font-family: var(--display);
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat span {
+        display: block;
+        margin-top: 0.6rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      /* Products and trust share one card grid. */
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+        gap: 1.25rem;
+        margin-top: 2.5rem;
+      }
+
+      .card {
+        padding: 1.75rem;
+        border-radius: 1.25rem;
+      }
+
+      .card h3 {
+        font-size: 1.2rem;
+        font-weight: 600;
+      }
+
+      .card p {
+        margin-top: 0.6rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.65;
+      }
+
+      .card ul {
+        margin: 1.25rem 0 0;
+        padding: 1.25rem 0 0;
+        border-top: 1px solid var(--border);
+        list-style: none;
+        font-size: 0.9rem;
+      }
+
+      .card li + li {
+        margin-top: 0.5rem;
+      }
+
+      .card li::before {
+        content: "✓";
+        margin-right: 0.5rem;
+        color: var(--brand-bright);
+      }
+
+      .icon {
+        display: grid;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        margin-bottom: 1.25rem;
+        border-radius: 0.75rem;
+        background: rgb(46 144 255 / 0.15);
+        color: var(--brand-bright);
+      }
+
+      .icon svg {
+        width: 1.4rem;
+        height: 1.4rem;
+      }
+
+      /* FAQ: native details/summary, no script. */
+      .faq {
+        max-width: 48rem;
+        margin: 2.5rem auto 0;
+      }
+
+      .faq details {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .faq summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.25rem 0;
+        cursor: pointer;
+        font-weight: 600;
+        list-style: none;
+      }
+
+      .faq summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .faq summary::after {
+        content: "+";
+        flex: none;
+        color: var(--brand-bright);
+        font-size: 1.5rem;
+        line-height: 1;
+        transition: transform 0.25s;
+      }
+
+      .faq details[open] summary::after {
+        transform: rotate(45deg);
+      }
+
+      .faq details p {
+        padding: 0 0 1.25rem;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      footer {
+        padding: 3rem 0 4rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      footer .container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+      }
+
+      footer p {
+        max-width: 40rem;
+        line-height: 1.7;
+      }
+
+      @media (max-width: 640px) {
+        section {
+          padding: 3.5rem 0;
+        }
+
+        .hero {
+          padding: 7rem 0 3rem;
+        }
+
+        .lead {
+          font-size: 1rem;
+        }
+
+        .widget-body {
+          padding: 1rem 1.25rem 1.25rem;
+        }
+
+        .widget h3 {
+          font-size: 1.25rem;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .aurora,
+        .text-gradient {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <img class="logo" src="logo.png" alt="SkyStake" width="720" height="115" />
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div aria-hidden="true" class="aurora"></div>
+        <div aria-hidden="true" class="grid-bg"></div>
+        <div aria-hidden="true" class="orb orb-a"></div>
+        <div aria-hidden="true" class="orb orb-b"></div>
+
+        <div class="container">
+          <div class="hero-copy">
+            <span class="eyebrow">iGaming company · Crypto casino · Sportsbook · AI</span>
+            <h1>The house that builds its <span class="text-gradient">own stack.</span></h1>
+            <p class="lead">
+              SkyStake runs an online crypto casino and sportsbook on infrastructure we write
+              ourselves: original provably fair games, a real-time odds engine, on-chain payments
+              and AI that puts the player's safety before the next bet.
+            </p>
+            <ul class="chips">
+              <li>Provably fair originals</li>
+              <li>Crypto on eight chains</li>
+              <li>18+ · Responsible gaming</li>
+            </ul>
+          </div>
+
+          <div class="widgets">
+            <a class="widget glass card-hover" href="https://skystake.bet">
+              <div class="browser">
+                <div class="browser-bar" aria-hidden="true">
+                  <i></i><i></i><i></i><span class="browser-url">skystake.bet</span>
+                </div>
+                <div class="shot">
+                  <img
+                    src="shots/site.webp"
+                    alt="The skystake.bet home page"
+                    width="960"
+                    height="600"
+                  />
+                </div>
+              </div>
+              <div class="widget-body">
+                <div class="widget-text">
+                  <span class="widget-tag">Company</span>
+                  <h3>skystake.bet</h3>
+                  <p>Products, rewards, AI, platform and trust: everything about SkyStake.</p>
+                </div>
+                <span class="go" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                </span>
+              </div>
+            </a>
+
+            <a class="widget glass card-hover is-primary" href="https://app.skystake.bet">
+              <div class="browser">
+                <div class="browser-bar" aria-hidden="true">
+                  <i></i><i></i><i></i><span class="browser-url">app.skystake.bet</span>
+                </div>
+                <div class="shot">
+                  <img
+                    src="shots/app.webp"
+                    alt="The app.skystake.bet casino lobby"
+                    width="960"
+                    height="600"
+                  />
+                </div>
+              </div>
+              <div class="widget-body">
+                <div class="widget-text">
+                  <span class="widget-tag">Play now</span>
+                  <h3>app.skystake.bet</h3>
+                  <p>Casino, sportsbook and crypto wallet. Sign up, deposit and play.</p>
+                </div>
+                <span class="go" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                </span>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="SkyStake in numbers">
+        <div class="container stats-grid">
+          <div class="stat glass">
+            <strong>19</strong><span>original games, every result verifiable</span>
+          </div>
+          <div class="stat glass">
+            <strong>20+</strong><span>sports, live and pre-match</span>
+          </div>
+          <div class="stat glass">
+            <strong>8</strong><span>blockchains for deposits and payouts</span>
+          </div>
+          <div class="stat glass">
+            <strong>100%</strong><span>crypto. No card forms, no bank days</span>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="container">
+          <span class="eyebrow">Products</span>
+          <h2 class="section-title">One platform, built in-house.</h2>
+          <div class="cards">
+            <div class="card glass card-hover">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01" /></svg>
+              </div>
+              <h3>Casino</h3>
+              <p>19 original games, slots and live tables.</p>
+            </div>
+            <div class="card glass card-hover">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="m12 7.5 4 2.9-1.5 4.6h-5L8 10.4z" /><path d="M12 3v4.5M16 10.4l4.3-1.4M14.5 15l2.6 3.7M9.5 15l-2.6 3.7M8 10.4 3.7 9" /></svg>
+              </div>
+              <h3>Sportsbook</h3>
+              <p>Live and pre-match across 20+ sports.</p>
+            </div>
+            <div class="card glass card-hover">
+              <div class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="7" rx="6" ry="3" /><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7" /><path d="M9 15v2c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.7-2.7-3-6-3" /></svg>
+              </div>
+              <h3>Payments</h3>
+              <p>Crypto in, crypto out, on eight chains.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="container">
+          <span class="eyebrow">Trust</span>
+          <h2 class="section-title">Fair, secure and responsible by design.</h2>
+          <div class="cards">
+            <div class="card glass card-hover">
+              <h3>Provably fair by design</h3>
+              <p>
+                Every original game commits to a hashed server seed before the round, mixes in the
+                player's own seed, and lets anyone recompute the outcome afterwards.
+              </p>
+              <ul>
+                <li>Server seed hash shown before the round</li>
+                <li>Player-controlled client seed</li>
+                <li>Browser verifier for every game</li>
+              </ul>
+            </div>
+            <div class="card glass card-hover">
+              <h3>Security and compliance</h3>
+              <p>
+                Four-level KYC, two-factor sign-in, encrypted documents, second-approver
+                withdrawals above a threshold and an audit log behind every admin action.
+              </p>
+              <ul>
+                <li>KYC before the first withdrawal</li>
+                <li>Two-factor authentication</li>
+                <li>Risk flags and linked-account checks</li>
+              </ul>
+            </div>
+            <div class="card glass card-hover">
+              <h3>Responsible gaming first</h3>
+              <p>
+                Deposit, loss and wager limits, session limits, reality checks, cool-off and
+                self-exclusion. Every real-money debit is checked against them before it happens.
+              </p>
+              <ul>
+                <li>Limits a player sets, we enforce</li>
+                <li>Cool-off and self-exclusion</li>
+                <li>18+ only, age checked at sign-up</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="container">
+          <div class="center">
+            <span class="eyebrow">FAQ</span>
+            <h2 class="section-title">Questions, answered.</h2>
+          </div>
+          <div class="faq">
+            <details>
+              <summary>What does SkyStake actually operate?</summary>
+              <p>
+                An online crypto casino with 19 original games, a slot catalogue and live tables,
+                and a sportsbook covering more than 20 sports live and pre-match. Both run on
+                infrastructure we build and operate ourselves, from the wallet to the back office.
+              </p>
+            </details>
+            <details>
+              <summary>Which cryptocurrencies do you support?</summary>
+              <p>
+                TON, Bitcoin, Litecoin, Ethereum, BNB, TRON and Solana natively, plus USDT and USDC
+                as tokens on their networks. Deposits are detected on-chain and credited after the
+                chain's confirmation depth.
+              </p>
+            </details>
+            <details>
+              <summary>What do you mean by AI?</summary>
+              <p>
+                Rule-based intelligence that is live today: risk scoring, linked-account and
+                bonus-abuse detection, responsible-gaming checks on every debit. AI never touches
+                money, odds or a game engine, and goes quiet when a player should stop.
+              </p>
+            </details>
+            <details>
+              <summary>Where are you available?</summary>
+              <p>
+                Availability depends on local law. SkyStake is for adults only and is not offered
+                in jurisdictions where online gambling or crypto gambling is prohibited. Check your
+                local rules before you play.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="container">
+        <img class="logo" src="logo.png" alt="SkyStake" width="720" height="115" />
+        <p>
+          SkyStake is for adults only (18+). Gambling involves risk; play responsibly and only with
+          money you can afford to lose. Not available where online or crypto gambling is
+          prohibited.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

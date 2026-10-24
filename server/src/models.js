@@ -24,6 +24,8 @@ const mailFields = {
   emailCount: { type: Number, default: 0 },
   lastEmailAt: { type: Date, default: null },
   lastEmailSubject: { type: String, default: '' },
+  // "Name <address>" of the sender used last
+  lastEmailFrom: { type: String, default: '' },
   lastEmailError: { type: String, default: '' },
 };
 
@@ -143,25 +145,64 @@ const streamerSchema = new mongoose.Schema(
 streamerSchema.index({ username: 1 });
 
 export const DEFAULT_DAILY_MAIL_LIMIT = 100;
+export const DEFAULT_MAIL_DELAY_MS = 3000;
 
 // App-wide settings, one document per key (only "mail" for now).
 const settingSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, unique: true },
-    // most emails (recipient addresses) sent per UTC day; 0 stops sending
+    // most emails (recipient addresses) per UTC day, for each sender and for each Resend account; 0 stops sending
     dailyLimit: { type: Number, default: DEFAULT_DAILY_MAIL_LIMIT, min: 0, max: 100000 },
+    // pause between two emails, so the mail provider does not flag the account
+    delayMs: { type: Number, default: DEFAULT_MAIL_DELAY_MS, min: 0, max: 60000 },
   },
   { timestamps: true },
 );
 
-// Emails sent on one UTC day (YYYY-MM-DD), checked against the daily limit.
+export const MAIL_PROVIDERS = ['resend'];
+
+// One Resend account. The API key is stored encrypted (secret.js) and never sent to the browser.
+const mailIntegrationSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    provider: { type: String, enum: MAIL_PROVIDERS, default: 'resend' },
+    apiKeyEnc: { type: String, required: true },
+    // start and end of the key, to tell keys apart in the app (re_3rq…eef)
+    apiKeyHint: { type: String, default: '' },
+    enabled: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
+
+// One From address of an integration, on a domain verified in that Resend account.
+const mailSenderSchema = new mongoose.Schema(
+  {
+    integration: { type: mongoose.Schema.Types.ObjectId, ref: 'MailIntegration', required: true, index: true },
+    name: text,
+    email: { type: String, required: true, lowercase: true, trim: true },
+    replyTo: { ...text, lowercase: true },
+    enabled: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
+mailSenderSchema.index({ integration: 1, email: 1 }, { unique: true });
+
+export const MAIL_SCOPES = ['sender', 'integration'];
+
+// Emails sent on one UTC day (YYYY-MM-DD) by one sender, or by all senders of one integration;
+// both are checked against the daily limit.
 const mailDaySchema = new mongoose.Schema({
-  day: { type: String, required: true, unique: true },
+  day: { type: String, required: true },
+  scope: { type: String, enum: MAIL_SCOPES, required: true },
+  ref: { type: mongoose.Schema.Types.ObjectId, required: true },
   sent: { type: Number, default: 0 },
 });
+mailDaySchema.index({ day: 1, scope: 1, ref: 1 }, { unique: true });
 
 export const Setting = mongoose.model('Setting', settingSchema);
 export const MailDay = mongoose.model('MailDay', mailDaySchema);
+export const MailIntegration = mongoose.model('MailIntegration', mailIntegrationSchema);
+export const MailSender = mongoose.model('MailSender', mailSenderSchema);
 export const User = mongoose.model('User', userSchema);
 export const Streamer = mongoose.model('Streamer', streamerSchema);
 export const License = mongoose.model('License', licenseSchema);

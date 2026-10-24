@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import { config } from './config.js';
-import { DEFAULT_DAILY_MAIL_LIMIT, License, MailDay, Person, Provider, Setting, Streamer } from './models.js';
-import { isResendConfigured, resendFrom, sendResendMail } from './resend.js';
+import { DEFAULT_DAILY_MAIL_LIMIT, DEFAULT_MAIL_DELAY_MS, License, MailDay, Person, Provider, Setting, Streamer } from './models.js';
+import { accountsRouter, fromLine, listAccounts, loadSender } from './mailAccounts.js';
+import { sendResendMail } from './resend.js';
 
 // Each list the app can email from: how to name a row and which addresses it has.
 const LISTS = {
@@ -15,39 +16,66 @@ const LISTS = {
 const MAX_PER_JOB = 500;
 
 const { mail } = config;
-const isConfigured = () => mail.dryRun || isResendConfigured();
 // Dry run does everything but the Resend call, for trying the flow before a key is set.
 const deliver = (message) => (mail.dryRun ? Promise.resolve({ messageId: null }) : sendResendMail(message));
 
-// The daily limit counts recipient addresses per UTC day (Resend's own quota resets at 00:00 UTC).
+// The daily limit counts recipient addresses per UTC day (Resend's own quota resets at 00:00 UTC),
+// once for the sender and once for its Resend account: both have to stay under it.
 const today = () => new Date().toISOString().slice(0, 10);
 
-async function getDailyLimit() {
+async function getSettings() {
   const s = await Setting.findOne({ key: 'mail' }).lean();
-  return s ? s.dailyLimit : DEFAULT_DAILY_MAIL_LIMIT;
+  return { dailyLimit: s?.dailyLimit ?? DEFAULT_DAILY_MAIL_LIMIT, delayMs: s?.delayMs ?? DEFAULT_MAIL_DELAY_MS };
 }
 
-async function usage() {
+// Every sender and integration with today's count and what is left of the limit.
+async function overview() {
   const day = today();
-  const [dailyLimit, counter] = await Promise.all([getDailyLimit(), MailDay.findOne({ day }).lean()]);
-  const sentToday = counter?.sent || 0;
-  return { day, dailyLimit, sentToday, remaining: Math.max(0, dailyLimit - sentToday) };
+  const [{ dailyLimit, delayMs }, accounts, counters] = await Promise.all([getSettings(), listAccounts(), MailDay.find({ day }).lean()]);
+  const sentBy = (scope, id) => counters.find((c) => c.scope === scope && String(c.ref) === id)?.sent || 0;
+  const left = (sent) => Math.max(0, dailyLimit - sent);
+  const integrations = accounts.integrations.map((i) => {
+    const sentToday = sentBy('integration', i.id);
+    return { ...i, sentToday, remaining: left(sentToday) };
+  });
+  const senders = accounts.senders.map((s) => {
+    const integration = integrations.find((i) => i.id === s.integration);
+    const sentToday = sentBy('sender', s.id);
+    const usable = Boolean(s.enabled && integration?.enabled);
+    // the sender's own count, capped by what its Resend account has left
+    const remaining = usable ? Math.min(left(sentToday), integration.remaining) : 0;
+    return { ...s, integrationName: integration?.name || '', usable, sentToday, remaining };
+  });
+  return { day, dailyLimit, delayMs, integrations, senders };
 }
 
-// Takes `n` slots from today's budget in one atomic update; false when it would go over the limit.
-async function reserve(n) {
-  const day = today();
-  const limit = await getDailyLimit();
-  if (n > limit) return false;
-  await MailDay.updateOne({ day }, { $setOnInsert: { sent: 0 } }, { upsert: true }).catch((err) => {
+// Takes `n` from today's count of one counter, in one atomic update; false when it would go over the limit.
+async function take(day, scope, ref, n, limit) {
+  await MailDay.updateOne({ day, scope, ref }, { $setOnInsert: { sent: 0 } }, { upsert: true }).catch((err) => {
     if (err.code !== 11000) throw err; // two sends creating the day at once
   });
-  const res = await MailDay.updateOne({ day, sent: { $lte: limit - n } }, { $inc: { sent: n } });
+  const res = await MailDay.updateOne({ day, scope, ref, sent: { $lte: limit - n } }, { $inc: { sent: n } });
   return res.modifiedCount === 1;
 }
 
-// A refused send did not use Resend's quota, so its slots go back.
-const release = (n) => MailDay.updateOne({ day: today() }, { $inc: { sent: -n } });
+const giveBack = (day, scope, ref, n) => MailDay.updateOne({ day, scope, ref }, { $inc: { sent: -n } });
+
+// Reserves `n` slots for the sender and its integration; false (and nothing taken) when either is full.
+async function reserve(sender, n) {
+  const day = today();
+  const { dailyLimit } = await getSettings();
+  if (n > dailyLimit) return false;
+  if (!(await take(day, 'sender', sender._id, n, dailyLimit))) return false;
+  if (await take(day, 'integration', sender.integration, n, dailyLimit)) return { day, n };
+  await giveBack(day, 'sender', sender._id, n);
+  return false;
+}
+
+// A refused send did not use Resend's quota, so its slots go back (to the day they were taken from).
+const release = (sender, { day, n }) => Promise.all([
+  giveBack(day, 'sender', sender._id, n),
+  giveBack(day, 'integration', sender.integration, n),
+]);
 
 function httpError(status, message) {
   return Object.assign(new Error(message), { status });
@@ -67,7 +95,8 @@ function render(template, row, name, email) {
 const jobs = new Map();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function runJob(job, { model, name, emails }, { subject, body, allEmails }) {
+async function runJob(job, { model, name, emails }, { subject, body, allEmails }, { sender, apiKey }, delayMs) {
+  const from = fromLine(sender);
   for (const id of job.ids) {
     const result = { id, name: '', to: '', state: 'skipped', error: '' };
     job.results.push(result);
@@ -89,18 +118,19 @@ async function runJob(job, { model, name, emails }, { subject, body, allEmails }
       }
       const recipients = allEmails ? to : to.slice(0, 1);
       result.to = recipients.join(', ');
-      if (!(await reserve(recipients.length))) {
-        result.error = 'Daily email limit reached';
+      const slot = await reserve(sender, recipients.length);
+      if (!slot) {
+        result.error = 'Daily email limit reached (sender or Resend account)';
         continue;
       }
       result.state = 'sending';
       const text = render(body, row, result.name, to[0]);
       const subjectLine = render(subject, row, result.name, to[0]);
       try {
-        await deliver({ to: recipients, subject: subjectLine, text, replyTo: mail.replyTo });
+        await deliver({ apiKey, from, to: recipients, subject: subjectLine, text, replyTo: sender.replyTo });
         result.state = 'sent';
         await model.updateOne({ _id: id }, {
-          $set: { lastEmailAt: new Date(), lastEmailSubject: subjectLine, lastEmailError: '' },
+          $set: { lastEmailAt: new Date(), lastEmailSubject: subjectLine, lastEmailFrom: from, lastEmailError: '' },
           $inc: { emailCount: 1 },
         });
         // replied/blocked are decisions made in the app, so only a fresh row moves to sent.
@@ -108,10 +138,10 @@ async function runJob(job, { model, name, emails }, { subject, body, allEmails }
       } catch (err) {
         result.state = 'failed';
         result.error = err.message;
-        await release(recipients.length);
+        await release(sender, slot);
         await model.updateOne({ _id: id }, { $set: { lastEmailError: err.message.slice(0, 500) } });
       }
-      if (job.done + 1 < job.total) await sleep(mail.delayMs);
+      if (job.done + 1 < job.total) await sleep(delayMs);
     } catch (err) {
       result.state = 'failed';
       result.error = err.message;
@@ -127,6 +157,7 @@ function summary(job) {
   return {
     id: job.id,
     list: job.list,
+    from: job.from,
     total: job.total,
     done: job.done,
     sent: count('sent'),
@@ -141,32 +172,34 @@ function summary(job) {
 const wrap = (fn) => (req, res, next) => fn(req, res).catch(next);
 
 export const mailRouter = Router();
+mailRouter.use(accountsRouter);
 
 mailRouter.get('/config', wrap(async (req, res) => {
+  const o = await overview();
   res.json({
+    ...o,
     provider: 'resend',
-    configured: isConfigured(),
-    from: resendFrom(),
-    replyTo: mail.replyTo,
+    configured: o.senders.some((s) => s.usable),
     dryRun: mail.dryRun,
-    delayMs: mail.delayMs,
     maxPerJob: MAX_PER_JOB,
-    ...(await usage()),
   });
 }));
 
 mailRouter.put('/settings', wrap(async (req, res) => {
   const dailyLimit = Number(req.body?.dailyLimit);
+  const delayMs = Number(req.body?.delayMs);
   if (!Number.isInteger(dailyLimit) || dailyLimit < 0 || dailyLimit > 100000) {
     throw httpError(400, 'Daily limit must be a whole number from 0 to 100000');
   }
-  await Setting.updateOne({ key: 'mail' }, { $set: { dailyLimit } }, { upsert: true });
-  res.json(await usage());
+  if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 60000) {
+    throw httpError(400, 'Pause must be from 0 to 60 seconds');
+  }
+  await Setting.updateOne({ key: 'mail' }, { $set: { dailyLimit, delayMs } }, { upsert: true });
+  res.json(await overview());
 }));
 
 mailRouter.post('/send', wrap(async (req, res) => {
-  if (!isConfigured()) throw httpError(400, 'Email is not set up: fill RESEND_API_KEY and RESEND_FROM in server/.env and restart the API');
-  const { list, subject, body, allEmails } = req.body || {};
+  const { list, subject, body, allEmails, senderId } = req.body || {};
   const target = LISTS[list];
   if (!target) throw httpError(400, 'Unknown list');
   const ids = [...new Set((Array.isArray(req.body.ids) ? req.body.ids : []).map(String))].filter((id) => mongoose.isValidObjectId(id));
@@ -174,13 +207,18 @@ mailRouter.post('/send', wrap(async (req, res) => {
   if (ids.length > MAX_PER_JOB) throw httpError(400, `At most ${MAX_PER_JOB} rows per send`);
   if (!String(subject || '').trim()) throw httpError(400, 'Subject is required');
   if (!String(body || '').trim()) throw httpError(400, 'Message is required');
-  if ([...jobs.values()].some((j) => !j.finishedAt)) throw httpError(409, 'Another send is still running, wait for it to finish');
-  const { remaining, dailyLimit } = await usage();
-  if (!remaining) throw httpError(429, `Daily email limit reached (${dailyLimit} per day). Raise it in Settings or try again tomorrow (UTC).`);
+  const account = await loadSender(senderId);
+  const senderKey = String(account.sender._id);
+  if ([...jobs.values()].some((j) => !j.finishedAt && j.senderId === senderKey)) {
+    throw httpError(409, 'This sender is still sending, wait for it to finish or pick another sender');
+  }
+  const o = await overview();
+  const { remaining } = o.senders.find((s) => s.id === senderKey);
+  if (!remaining) throw httpError(429, `Daily email limit reached for ${fromLine(account.sender)} or its Resend account (${o.dailyLimit} per day). Pick another sender, raise the limit in Settings, or try again tomorrow (UTC).`);
 
-  const job = { id: randomUUID(), list, ids, total: ids.length, done: 0, results: [], startedAt: new Date(), finishedAt: null };
+  const job = { id: randomUUID(), list, senderId: senderKey, from: fromLine(account.sender), ids, total: ids.length, done: 0, results: [], startedAt: new Date(), finishedAt: null };
   jobs.set(job.id, job);
-  void runJob(job, target, { subject: String(subject).trim(), body: String(body), allEmails: Boolean(allEmails) });
+  void runJob(job, target, { subject: String(subject).trim(), body: String(body), allEmails: Boolean(allEmails) }, account, o.delayMs);
   // Finished jobs are kept for an hour so a reloaded page can still read the result.
   for (const [id, j] of jobs) if (j.finishedAt && Date.now() - j.finishedAt > 3600_000) jobs.delete(id);
   res.status(202).json(summary(job));

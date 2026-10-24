@@ -423,7 +423,7 @@ export function MailInfo({ row }) {
   if (!row.lastEmailAt) return null;
   const when = new Date(row.lastEmailAt);
   return (
-    <p className="mt-1 text-xs whitespace-nowrap text-gray-500 dark:text-gray-400" title={`${row.lastEmailSubject}\n${when.toLocaleString()}`}>
+    <p className="mt-1 text-xs whitespace-nowrap text-gray-500 dark:text-gray-400" title={`${row.lastEmailSubject}\n${row.lastEmailFrom ? `from ${row.lastEmailFrom}\n` : ""}${when.toLocaleString()}`}>
       Emailed {when.toLocaleDateString()}{row.emailCount > 1 ? ` (${row.emailCount}×)` : ""}
     </p>
   );
