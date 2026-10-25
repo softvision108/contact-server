@@ -6,6 +6,7 @@ import { SidebarProvider } from "./context/SidebarContext.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { ToastProvider } from "./context/ToastContext.jsx";
 import AdminLayout from "./layout/AdminLayout.jsx";
+import CryptoPartnersPage from "./pages/CryptoPartnersPage.jsx";
 import LicensesPage from "./pages/LicensesPage.jsx";
 import MailSettingsPage from "./pages/MailSettingsPage.jsx";
 import PeoplePage from "./pages/PeoplePage.jsx";
@@ -39,6 +40,7 @@ export default function App() {
                 <Route path={routePaths.people} element={<PeoplePage />} />
                 <Route path={routePaths.licenses} element={<LicensesPage />} />
                 <Route path={routePaths.streamers} element={<StreamersPage />} />
+                <Route path={routePaths.cryptoPartners} element={<CryptoPartnersPage />} />
                 <Route path={routePaths.mailSettings} element={<MailSettingsPage />} />
               </Route>
               <Route path="*" element={<Navigate replace to={routePaths.providers} />} />

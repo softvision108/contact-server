@@ -36,7 +36,7 @@ function pickSender(senders) {
 }
 
 // Compose one message, send it to every selected row (one email per row), and follow the progress.
-// `list` is the API list name (providers, people, licenses, streamers); `fields` lists extra {{placeholders}}.
+// `list` is the API list name (providers, people, licenses, streamers, cryptoPartners); `fields` lists extra {{placeholders}}.
 // `recipient` names the row when the window was opened from one row's email button.
 export default function SendMailModal({ isOpen, list, ids, recipient, fields = [], onClose, onFinished }) {
   const [draft, setDraft] = useState(loadDraft);

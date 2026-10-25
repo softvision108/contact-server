@@ -8,7 +8,11 @@
     "start": "node --env-file=.env src/index.js",
     "web": "node --env-file=.env src/web.js",
     "seed": "node --env-file=.env src/seed.js",
-    "sync": "node --env-file=.env src/seed.js"
+    "sync": "node --env-file=.env src/seed.js",
+    "coins": "node src/coins.js",
+    "coins:import": "node --env-file=.env src/importCoins.js",
+    "coins:details": "node src/coinDetails.js",
+    "coins:emails": "node src/coinEmails.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

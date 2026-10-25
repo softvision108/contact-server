@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import { config } from './config.js';
-import { DEFAULT_DAILY_MAIL_LIMIT, DEFAULT_MAIL_DELAY_MS, License, MailDay, Person, Provider, Setting, Streamer } from './models.js';
+import { CryptoPartner, DEFAULT_DAILY_MAIL_LIMIT, DEFAULT_MAIL_DELAY_MS, License, MailDay, Person, Provider, Setting, Streamer } from './models.js';
 import { accountsRouter, fromLine, listAccounts, loadSender } from './mailAccounts.js';
 import { sendResendMail } from './resend.js';
 
@@ -11,6 +11,7 @@ const LISTS = {
   providers: { model: Provider, name: (d) => d.name, emails: (d) => d.emails },
   people: { model: Person, name: (d) => d.email, emails: (d) => [d.email] },
   licenses: { model: License, name: (d) => d.name, emails: (d) => d.emails },
+  cryptoPartners: { model: CryptoPartner, name: (d) => d.name, emails: (d) => d.emails },
   streamers: { model: Streamer, name: (d) => d.displayName || d.username, emails: (d) => d.emails },
 };
 const MAX_PER_JOB = 500;

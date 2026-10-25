@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import mongoose from 'mongoose';
 import { authRouter, requireAuth } from './auth.js';
 import { config } from './config.js';
+import { cryptoPartnersRouter } from './cryptoPartners.js';
 import { licensesRouter } from './licenses.js';
 import { mailRouter } from './mail.js';
 import { migrateLegacyMail } from './mailAccounts.js';
@@ -21,6 +22,7 @@ app.use('/api/providers', requireAuth, providersRouter);
 app.use('/api/people', requireAuth, peopleRouter);
 app.use('/api/licenses', requireAuth, licensesRouter);
 app.use('/api/streamers', requireAuth, streamersRouter);
+app.use('/api/crypto-partners', requireAuth, cryptoPartnersRouter);
 app.use('/api/mail', requireAuth, mailRouter);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 

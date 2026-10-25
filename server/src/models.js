@@ -112,6 +112,43 @@ const licenseSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+export const CRYPTO_CATEGORIES = ['payment-gateway', 'exchange', 'on-ramp', 'wallet', 'otc-liquidity', 'custody', 'compliance', 'coin-project'];
+
+// Crypto companies to partner with: payment gateways, exchanges, on-ramps and the like.
+const cryptoPartnerSchema = new mongoose.Schema(
+  {
+    slug: { type: String, required: true, unique: true },
+    name: { type: String, required: true, trim: true },
+    aliases: list,
+    category: { type: String, enum: [...CRYPTO_CATEGORIES, ''], default: '' },
+    // coins and tokens supported, e.g. BTC, USDT
+    coins: { ...list, index: true },
+    // networks supported, e.g. Ethereum, Tron
+    chains: list,
+    services: list,
+    // image URL, e.g. the coin logo from CoinMarketCap
+    logo: text,
+    website: text,
+    linkedin: text,
+    contactPage: text,
+    emails: list,
+    phones: list,
+    // Twitter/X, Telegram, Discord, Reddit, GitHub... profile links
+    socials: list,
+    headquarters: text,
+    fees: text,
+    settlement: text,
+    notes: list,
+    urls: list,
+    sources: list,
+    order: { type: Number, default: null, index: true },
+    status: { type: String, enum: STATUSES, default: 'ready', index: true },
+    content: { type: String, default: '', maxlength: 200000 },
+    ...mailFields,
+  },
+  { timestamps: true },
+);
+
 export const PLATFORMS = ['kick', 'twitch'];
 
 // Casino, slots and poker streamers found live on Kick and Twitch.
@@ -206,6 +243,7 @@ export const MailSender = mongoose.model('MailSender', mailSenderSchema);
 export const User = mongoose.model('User', userSchema);
 export const Streamer = mongoose.model('Streamer', streamerSchema);
 export const License = mongoose.model('License', licenseSchema);
+export const CryptoPartner = mongoose.model('CryptoPartner', cryptoPartnerSchema);
 export const Person = mongoose.model('Person', personSchema);
 export const Provider = mongoose.model('Provider', providerSchema);
 

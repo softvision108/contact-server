@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 
-import { BuildingIcon, ChevronDownIcon, KeyIcon, LicenseIcon, LogoutIcon, MenuIcon, CloseIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon, VideoIcon } from "../components/icons.jsx";
+import { BuildingIcon, ChevronDownIcon, CoinIcon, KeyIcon, LicenseIcon, LogoutIcon, MenuIcon, CloseIcon, MoonIcon, SettingsIcon, SunIcon, UsersIcon, VideoIcon } from "../components/icons.jsx";
 import { routePaths } from "../constants.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useSidebar } from "../context/SidebarContext.jsx";
@@ -13,6 +13,8 @@ const NAV = [
   { name: "Providers", path: routePaths.providers, icon: <BuildingIcon className="h-6 w-6" /> },
   { name: "People", path: routePaths.people, icon: <UsersIcon className="h-6 w-6" /> },
   { name: "Streamers", path: routePaths.streamers, icon: <VideoIcon className="h-6 w-6" /> },
+  { name: "Crypto", isParent: true },
+  { name: "Crypto Partner", path: routePaths.cryptoPartners, icon: <CoinIcon className="h-6 w-6" /> },
   { name: "Licensing", isParent: true },
   { name: "License", path: routePaths.licenses, icon: <LicenseIcon className="h-6 w-6" /> },
   { name: "Settings", isParent: true },
